@@ -6,6 +6,8 @@ import random
 import time
 
 W_Width, W_Height = 500, 700
+ENEMY_SIZE = 30
+NUM_ENEMIES = 10
 
 
 class dimensions:
@@ -24,11 +26,22 @@ class FireProjectile:
         self.y = y
         self.radius = 5  # Adjust size as needed
         self.speed = 1  # Adjust speed as needed
+# Enemy class
+class Enemy:
+    def __init__(self):
+        self.x = random.randint(0, W_Width - ENEMY_SIZE)
+        self.y = random.randint(W_Height, W_Height + 200)
+        self.speed = random.uniform(0.5, 2.0)
 
+# List to hold enemy objects
+enemies = []
+def init():
+    glClearColor(0.0, 0.0, 0.0, 1.0)
 
-fire_projectiles = []  # List to store fire projectile objects
+    # Initialize enemy ships
+    for _ in range(NUM_ENEMIES):
+        enemies.append(Enemy())
 
-shooter_radius = 15
 
 shooter = dimensions(40, 20, 30, 20)  # catcher
 arrow = dimensions(10, 660, 35, 35)  # arrow
@@ -138,7 +151,65 @@ def eight_way_symmetry(x1, y1, x2, y2):
     converted_x2, converted_y2 = convert(zone, x2, y2)
     midpoint_algo(zone, converted_x1, converted_y1, converted_x2, converted_y2)
 
+# Function to draw enemy ships
+def drawEnemies():
+    glColor3f(0.0, 1.0, 0.0)
+    for enemy in enemies:
+        x = enemy.x
+        y = enemy.y
 
+        # Draw head
+        glPointSize(2.0)
+        glBegin(GL_POINTS)
+        glVertex2f(x + ENEMY_SIZE / 2, y)
+        glVertex2f(x, y - ENEMY_SIZE)
+        glVertex2f(x + ENEMY_SIZE, y - ENEMY_SIZE)
+        glEnd()
+
+        # Draw eyes
+        glColor3f(1.0, 1.0, 1.0)
+        glBegin(GL_POINTS)
+        for i in range(20):
+            angle = math.radians(i * 10)
+            glVertex2f(x + ENEMY_SIZE / 4 + math.cos(angle) * ENEMY_SIZE / 16, 
+                       y - ENEMY_SIZE / 2 + math.sin(angle) * ENEMY_SIZE / 16)
+            glVertex2f(x + ENEMY_SIZE * 3 / 4 + math.cos(angle) * ENEMY_SIZE / 16, 
+                       y - ENEMY_SIZE / 2 + math.sin(angle) * ENEMY_SIZE / 16)
+        glEnd()
+
+        # Draw evil smile
+        glColor3f(1.0, 0.0, 0.0)
+        glBegin(GL_POINTS)
+        for i in range(36):
+            angle = math.radians(i * 10)
+            glVertex2f(x + ENEMY_SIZE / 3 + math.cos(angle) * ENEMY_SIZE / 12, 
+                       y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
+            glVertex2f(x + ENEMY_SIZE * 2 / 3 + math.cos(angle) * ENEMY_SIZE / 12, 
+                       y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
+        glEnd()
+
+# Function to update enemy positions
+def updateEnemies():
+    global W_Width, W_Height
+    for enemy in enemies:
+        enemy.y -= enemy.speed
+
+        # Reset position if enemy reaches the bottom
+        if enemy.y < 0:
+            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
+            enemy.y = random.randint(W_Width, W_Height + 200)
+            enemy.speed = 0.05
+
+# Function to handle window resizing
+def reshape(w, h):
+    glViewport(0, 0, w, h)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    gluOrtho2D(0, w, 0, h)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
+
+# Function to display content
 def draw_box(box):
     global collision, arrow, pause_icon, cross_icon, shooter, W_Height, shooter_radius
 
@@ -202,34 +273,28 @@ def show_screen():
 
     glColor3f(255, 191, 0)
     glPointSize(2)
+    
+    drawEnemies()
+    updateEnemies()
 
     glutSwapBuffers()
 
 
-# def animation():
-#     global last_circle_spawn_time, circle_spawn_interval, shooter_frozen, missed_circles_count,  fire_projectiles, circle_frozen
+def keyboard(key, x, y):
+    global shooter_radius, W_Width, fire_projectiles
+    if shooter_frozen:
+        return  # If shooter is frozen, do not allow shooter movement
 
-#     current_time = time.time()
+    elif key == b'a':  # Move left when 'a' key is pressed
+        if shooter.x >= 20 :  # Keep the shooter within the window bounds
+            shooter.x -= 10
 
-#     # Check if it's time to spawn a new circle
-#     if shooter_frozen:
-#         return  # If shooter is frozen due to game over, do not update falling circles
-
-#     if current_time - last_circle_spawn_time > circle_spawn_interval:
-#         # Generate and add a new falling circle
-#         falling_circles.append(FallingCircle())
-#         last_circle_spawn_time = current_time
-
-#     # Check for missed falling circles
-#     for circle in falling_circles:
-#         if circle.y - circle.radius < 30:
-#             missed_circles_count += 1
-#             falling_circles.remove(circle)
+    elif key == b'd':  # Move right when 'd' key is pressed
+        if shooter.x <= 455:  # Keep the shooter within the window bounds
+            shooter.x += 10
+    glutPostRedisplay()  # Trigger a redraw to update
 
 
-#     update_fire_projectiles()  # Update positions of fire projectiles
-#     update_falling_circles()   # Update positions of falling circles
-#     glutPostRedisplay()
 def mouse_click(button, state, x, y):
     global pause, diamond, score, pause, shooter_frozen, collision, circles_frozen
     mx, my = x, W_Height - y
@@ -266,6 +331,8 @@ def initialize():
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
+def animation():
+    glutPostRedisplay()
 
 glutInit()
 glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
@@ -274,10 +341,15 @@ glutInitWindowSize(500, 700)
 glutInitWindowPosition(0, 0)
 window = glutCreateWindow(b"shoot")
 
-# glutIdleFunc(animation)
+glutIdleFunc(animation)
 glutDisplayFunc(show_screen)
+
+glutReshapeFunc(reshape)
+glutKeyboardFunc(keyboard)
 glutMouseFunc(mouse_click)
 
 glEnable(GL_DEPTH_TEST)
 initialize()
+init()
+glutIdleFunc(animation)
 glutMainLoop()
