@@ -4,12 +4,32 @@ import math
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
+import time
 
 # Constants
 WINDOW_WIDTH = 500
 WINDOW_HEIGHT = 700
 ENEMY_SIZE = 30
-NUM_ENEMIES = 10
+NUM_ENEMIES = 5  # Increase the number of enemies
+
+# Projectile class
+class Projectile:
+    def __init__(self, start_x, start_y):
+        self.x = start_x
+        self.y = start_y
+        self.speed = 0.5
+
+    def update(self):
+        # Move the projectile towards the target
+        print("hello")
+        self.x -= self.speed
+        self.y -= self.speed
+
+    def draw(self):
+        glColor3f(1.0, 1.0, 1.0)  # White color for the projectile
+        glBegin(GL_POINTS)
+        glVertex2f(self.x, self.y)
+        glEnd()
 
 # Enemy class
 class Enemy:
@@ -17,6 +37,27 @@ class Enemy:
         self.x = random.randint(0, WINDOW_WIDTH - ENEMY_SIZE)
         self.y = random.randint(WINDOW_HEIGHT, WINDOW_HEIGHT + 200)
         self.speed = random.uniform(0.5, 2.0)
+        self.shoot_cooldown = 2.0  # Cooldown between shots in seconds
+        self.last_shot_time = 0.0
+        self.projectiles = []  # List to hold projectiles
+        self.shooting = False
+
+    def shoot(self):
+        self.shooting = True
+        self.last_shot_time = time.time()
+        # Choose a random target position within the window
+        self.projectiles.append(Projectile(self.x + ENEMY_SIZE / 2, self.y))
+
+    def update_projectiles(self):
+        for projectile in self.projectiles:
+            projectile.update()
+            # Remove projectiles that are out of bounds
+            if projectile.y <= 0 or projectile.x <= 0 or projectile.x >= WINDOW_WIDTH:
+                self.projectiles.remove(projectile)
+
+    def draw_projectiles(self):
+        for projectile in self.projectiles:
+            projectile.draw()
 
 # List to hold enemy objects
 enemies = []
@@ -29,7 +70,7 @@ def init():
     for _ in range(NUM_ENEMIES):
         enemies.append(Enemy())
 
-# Function to draw enemy ships
+# Function to draw enemy ships and projectiles
 def drawEnemies():
     glColor3f(0.0, 1.0, 0.0)
     for enemy in enemies:
@@ -37,7 +78,7 @@ def drawEnemies():
         y = enemy.y
 
         # Draw head
-        glPointSize(2.0)
+        glPointSize(4.0)
         glBegin(GL_POINTS)
         glVertex2f(x + ENEMY_SIZE / 2, y)
         glVertex2f(x, y - ENEMY_SIZE)
@@ -65,6 +106,17 @@ def drawEnemies():
             glVertex2f(x + ENEMY_SIZE * 2 / 3 + math.cos(angle) * ENEMY_SIZE / 12, 
                        y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
         glEnd()
+
+        # Check if the enemy is shooting
+        if enemy.shooting:
+            # Update the projectiles fired by the enemy
+            enemy.update_projectiles()
+            # Draw the projectiles
+            enemy.draw_projectiles()
+        else:
+            # Determine if the enemy should shoot
+            if random.random() < 5:  # Adjust the probability as needed
+                enemy.shoot()  # Call the shoot function to fire a projectile
 
 # Function to update enemy positions
 def updateEnemies():

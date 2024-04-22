@@ -7,7 +7,20 @@ import time
 
 W_Width, W_Height = 500, 700
 ENEMY_SIZE = 30
-NUM_ENEMIES = 10
+NUM_ENEMIES = 1
+
+# Add the following imports at the beginning of your code
+from collections import deque
+# Modify the Enemy class to include shooting mechanism
+
+class Enemy:
+    def __init__(self):
+        self.x = random.randint(0, W_Width - ENEMY_SIZE)
+        self.y = random.randint(W_Height, W_Height)  # Set initial y-coordinate
+        self.speed = 0.05
+        self.shooting = False
+        self.shoot_cooldown = 2000  # Cooldown between shots in milliseconds
+        self.last_shot_time = 0  # Time when the enemy last shot
 
 
 class dimensions:
@@ -20,21 +33,10 @@ class dimensions:
         self.x, self.y, self.w, self.h = x, y, w, h
 
 
-class FireProjectile:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.radius = 5  # Adjust size as needed
-        self.speed = 1  # Adjust speed as needed
-# Enemy class
-class Enemy:
-    def __init__(self):
-        self.x = random.randint(0, W_Width - ENEMY_SIZE)
-        self.y = random.randint(W_Height, W_Height + 200)
-        self.speed = random.uniform(0.5, 2.0)
-
 # List to hold enemy objects
 enemies = []
+enemy = None
+last_enemy_time = time.time()
 def init():
     glClearColor(0.0, 0.0, 0.0, 1.0)
 
@@ -152,6 +154,7 @@ def eight_way_symmetry(x1, y1, x2, y2):
     midpoint_algo(zone, converted_x1, converted_y1, converted_x2, converted_y2)
 
 # Function to draw enemy ships
+# Function to draw enemy ships
 def drawEnemies():
     glColor3f(0.0, 1.0, 0.0)
     for enemy in enemies:
@@ -189,17 +192,7 @@ def drawEnemies():
         glEnd()
 
 # Function to update enemy positions
-def updateEnemies():
-    global W_Width, W_Height
-    for enemy in enemies:
-        enemy.y -= enemy.speed
-
-        # Reset position if enemy reaches the bottom
-        if enemy.y < 0:
-            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
-            enemy.y = random.randint(W_Width, W_Height + 200)
-            enemy.speed = 0.05
-
+# Define the enemy object globally
 # Function to handle window resizing
 def reshape(w, h):
     glViewport(0, 0, w, h)
@@ -259,10 +252,9 @@ def draw_box(box):
 
     glEnd()
 
-#def shooter():
 
 def show_screen():
-    global W_Width, W_Height, fire_projectiles, shooter_radius
+    global W_Width, W_Height
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
 
@@ -275,13 +267,12 @@ def show_screen():
     glPointSize(2)
     
     drawEnemies()
-    updateEnemies()
 
     glutSwapBuffers()
 
 
 def keyboard(key, x, y):
-    global shooter_radius, W_Width, fire_projectiles
+    global shooter_radius, W_Width
     if shooter_frozen:
         return  # If shooter is frozen, do not allow shooter movement
 
@@ -322,7 +313,66 @@ def mouse_click(button, state, x, y):
             missed_circles_count = 0
             pause = False
 
+def updateEnemies():
+    global W_Width, W_Height, enemies
+  
+    for enemy in enemies:
+        enemy.y -= enemy.speed
 
+        if enemy.y < 0:
+            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
+            enemy.y = random.randint(W_Height, W_Height + 200)
+        
+# Define a variable to keep track of the elapsed time
+start_time = time.time()
+
+# Set a threshold time after which you want to increase the enemy count
+threshold_time = 20  # Adjust this value as needed
+def check_collision(enemy1, enemy2):
+    """
+    Function to check collision between two enemies.
+    """
+    # Calculate the distance between the centers of the two enemies
+    distance = math.sqrt((enemy1.x - enemy2.x)**2 + (enemy1.y - enemy2.y)**2)
+    # Check if the distance is less than the sum of their radii
+    return distance < ENEMY_SIZE
+def animation():
+    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter
+    
+    # Calculate the elapsed time
+    elapsed_time = time.time() - start_time
+    
+    # Check if the elapsed time exceeds the threshold
+    if elapsed_time > threshold_time:
+        print(elapsed_time, threshold_time)
+        # Increase the enemy count
+        NUM_ENEMIES += 1
+        print("Enemy count increased to:", NUM_ENEMIES)
+        
+        # Reset the start time to the current time
+        start_time = time.time()
+    
+    updateEnemies()  # Call the updateEnemies function here
+    
+    # Update the enemy positions
+    current_time = time.time()
+    if current_time - last_enemy_time > 10:  # Adjust interval as needed
+        for _ in range(NUM_ENEMIES):  # Spawn multiple enemies
+            new_enemy = Enemy()
+            # Check for collision with existing enemies
+            while any(check_collision(new_enemy, existing_enemy) for existing_enemy in enemies):
+                new_enemy = Enemy()  # Generate a new enemy until no collision occurs
+            enemies.append(new_enemy)  # Append new enemies to the enemies list
+        last_enemy_time = current_time
+
+    for enemy in enemies:  # Update the positions of all enemies
+        enemy.y -= enemy.speed
+
+        if enemy.y < 0:
+            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
+            enemy.y = random.randint(W_Height, W_Height + 200)
+       
+    glutPostRedisplay()
 def initialize():
     glViewport(0, 0, W_Width, W_Height)
     glMatrixMode(GL_PROJECTION)
@@ -330,9 +380,6 @@ def initialize():
     glOrtho(0.0, W_Width, 0.0, W_Height, 0.0, 1.0)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
-
-def animation():
-    glutPostRedisplay()
 
 glutInit()
 glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
@@ -351,5 +398,4 @@ glutMouseFunc(mouse_click)
 glEnable(GL_DEPTH_TEST)
 initialize()
 init()
-glutIdleFunc(animation)
 glutMainLoop()
