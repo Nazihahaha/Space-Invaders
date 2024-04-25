@@ -8,9 +8,12 @@ import time
 W_Width, W_Height = 500, 700
 ENEMY_SIZE = 30
 NUM_ENEMIES = 1
-
+count = 0
+background_color_change_start_time = 0
 # Add the following imports at the beginning of your code
 from collections import deque
+
+
 # Modify the Enemy class to include shooting mechanism
 
 class Enemy:
@@ -21,6 +24,31 @@ class Enemy:
         self.shooting = False
         self.shoot_cooldown = 2000  # Cooldown between shots in milliseconds
         self.last_shot_time = 0  # Time when the enemy last shot
+    def shoot(self):
+        self.shooting = True
+        self.last_shot_time = time.time()
+
+    def update(self):
+        if self.shooting and time.time() - self.last_shot_time > self.shoot_cooldown / 1000:
+            bullets.append(Bullet(self.x + ENEMY_SIZE / 2, self.y - ENEMY_SIZE / 2))
+            self.last_shot_time = time.time()
+
+class Bullet:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.speed = 0.1
+
+
+
+
+# List to hold enemy objects
+enemies = []
+enemy = None
+last_enemy_time = time.time()
+bullets = deque()  # Queue to hold bullets
+bullet_speed = 0.2
+
 
 
 class dimensions:
@@ -33,10 +61,7 @@ class dimensions:
         self.x, self.y, self.w, self.h = x, y, w, h
 
 
-# List to hold enemy objects
-enemies = []
-enemy = None
-last_enemy_time = time.time()
+
 def init():
     glClearColor(0.0, 0.0, 0.0, 1.0)
 
@@ -55,6 +80,341 @@ shooter_frozen = False
 circle_falling = True
 pause = False
 circles_frozen = False
+
+
+# Define a function to draw bullets
+def drawBullets():
+    glColor3f(0.5, 1.0, 1.0)
+    glPointSize(2.0)
+    glBegin(GL_POINTS)
+    for bullet in bullets:
+        glVertex2f(bullet.x, bullet.y)
+    glEnd()
+
+
+# Function to draw enemy ships
+def drawEnemies():
+    glColor3f(0.0, 1.0, 0.0)
+    for enemy in enemies:
+        x = enemy.x
+        y = enemy.y
+
+        # Draw head
+        glPointSize(2.0)
+        glBegin(GL_POINTS)
+        glVertex2f(x + ENEMY_SIZE / 2, y)
+        glVertex2f(x, y - ENEMY_SIZE)
+        glVertex2f(x + ENEMY_SIZE, y - ENEMY_SIZE)
+        glEnd()
+
+        # Draw eyes
+        glColor3f(1.0, 1.0, 1.0)
+        glBegin(GL_POINTS)
+        for i in range(20):
+            angle = math.radians(i * 10)
+            glVertex2f(x + ENEMY_SIZE / 4 + math.cos(angle) * ENEMY_SIZE / 16,
+                       y - ENEMY_SIZE / 2 + math.sin(angle) * ENEMY_SIZE / 16)
+            glVertex2f(x + ENEMY_SIZE * 3 / 4 + math.cos(angle) * ENEMY_SIZE / 16,
+                       y - ENEMY_SIZE / 2 + math.sin(angle) * ENEMY_SIZE / 16)
+        glEnd()
+
+        # Draw evil smile
+        glColor3f(1.0, 0.0, 0.0)
+        glBegin(GL_POINTS)
+        for i in range(36):
+            angle = math.radians(i * 10)
+            glVertex2f(x + ENEMY_SIZE / 3 + math.cos(angle) * ENEMY_SIZE / 12,
+                       y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
+            glVertex2f(x + ENEMY_SIZE * 2 / 3 + math.cos(angle) * ENEMY_SIZE / 12,
+                       y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
+        glEnd()
+
+
+# Function to update enemy positions
+def updateEnemies():
+    global W_Width, W_Height, enemies
+
+
+    for enemy in enemies:
+        enemy.y -= enemy.speed
+
+        if enemy.y < 0:
+            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
+            enemy.y = random.randint(W_Height, W_Height + 200)
+
+def check_collision_enemy_bullet(enemy_x, enemy_y, bullet_x, bullet_y, threshold):
+    """
+    Function to check collision between an enemy and a bullet.
+    """
+    distance_squared = (enemy_x - bullet_x) ** 2 + (enemy_y - bullet_y) ** 2
+    # Compare the squared distance with the square of the threshold
+    return distance_squared <= threshold ** 2
+
+
+
+def updateBullets():
+    global bullets, enemies, score
+    threshold = 20
+    # Iterate over copies of bullets
+    for bullet in bullets.copy():
+        bullet.y += bullet.speed
+
+        # Iterate over copies of enemies
+        for enemy in enemies.copy():
+             if check_collision_enemy_bullet(enemy.x + ENEMY_SIZE / 2, enemy.y, bullet.x, bullet.y, threshold):
+                bullets.remove(bullet)  # Remove bullet
+                enemies.remove(enemy)  # Remove enemy
+                score += 1  # Increase score by 1
+
+    # Remove bullets that have moved out of the screen
+    bullets = [bullet for bullet in bullets if bullet.y <= W_Height]
+# Function to handle shooting logic
+def check_collision(enemy1, enemy2):
+    """
+    Function to check collision between two enemies.
+    """
+    # Calculate the distance between the centers of the two enemies
+    distance = math.sqrt((enemy1.x - enemy2.x)**2 + (enemy1.y - enemy2.y)**2)
+    # Check if the distance is less than the sum of their radii
+    return distance < ENEMY_SIZE
+
+def check_collision_shooter_enemy(shooter_x, shooter_y, enemy_x, enemy_y, threshold):
+    distance_squared = (shooter_x - enemy_x) ** 2 + (shooter_y - enemy_y) ** 2
+    return distance_squared <= threshold ** 2
+
+# Function to handle collision between the shooter and enemies
+def handle_collision_shooter():
+    global shooter, enemies, collision, count, pause, background_color_change_start_time
+    for enemy in enemies:
+        if check_collision_shooter_enemy(shooter.x + shooter.w / 2, shooter.y + shooter.h / 2, enemy.x + ENEMY_SIZE / 2, enemy.y + ENEMY_SIZE / 2, shooter.w):
+
+            collision = True
+            enemies.remove(enemy)
+            background_color_change_start_time = time.time()
+            print(background_color_change_start_time)
+
+            count += 1
+            print(background_color_change_start_time)
+
+            if count == 3:
+                pause = True
+                print('over')
+
+            return
+    collision = False
+
+    if time.time() - background_color_change_start_time <= 0.2:
+
+        # print('red')
+        glClearColor(1.0, 0.0, 0.0, 0.0)
+    else:
+        # print('black')
+        glClearColor(0.0, 0.0, 0.0, 1.0)
+    glutPostRedisplay()
+
+def shoot():
+    global bullets
+    bullet_x = shooter.x + shooter.w / 2
+    bullet_y = shooter.y + shooter.h
+    new_bullet = Bullet(bullet_x, bullet_y)
+    bullets.append(new_bullet)
+
+
+# Function to handle window resizing
+def reshape(w, h):
+    glViewport(0, 0, w, h)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    gluOrtho2D(0, w, 0, h)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
+
+
+# Function to display content
+def draw_box(box):
+    global collision, arrow, pause_icon, cross_icon, shooter, W_Height
+
+    glBegin(GL_POINTS)
+    x1, y1 = box.x, box.y  # Top-left corner
+    x2, y2 = box.x + box.w, box.y  # Top-right corner
+    x3, y3 = box.x + box.w, box.y + box.h  # Bottom-right corner
+    x4, y4 = box.x, box.y + box.h  # Bottom-left corner
+
+    if box == shooter:
+        glColor3f(1.0, 0.5, 0.0)  # amber color for the shooter
+        # Draw the shooter's shape
+        eight_way_symmetry(x4, y4, x1, y1)
+        eight_way_symmetry(x3, y4, x2, y2)
+        eight_way_symmetry((x4 + x2) // 2, y4 + 20, x3, y4)
+        eight_way_symmetry((x4 + x2) // 2, y4 + 20, x4, y4)
+        eight_way_symmetry((x4 + x2) // 2, y2 + 10, x1, y1)
+        eight_way_symmetry((x4 + x2) // 2, y2 + 10, x3, y1)
+        glColor3f(1.0, 1.0, 1.0)
+        eight_way_symmetry((x4 + x2) // 2, y2 + 8, (x4 + x2) // 2, y1)
+        eight_way_symmetry(((x4 + x2) // 2) + 3, y2 + 6, ((x4 + x2) // 2) + 3, y1)
+        eight_way_symmetry(((x4 + x2) // 2) - 3, y2 + 6, ((x4 + x2) // 2) - 3, y1)
+
+    if box == arrow:  # if arrow
+        glColor3f(0.0, 0.5, 0.5)
+        eight_way_symmetry(x1, (y1 + y4) // 2, (x1 + x2) // 2, y4)
+        eight_way_symmetry(x1, (y4 + y1) // 2, (x1 + x3) // 2, y1)
+        eight_way_symmetry(x1, (y1 + y4) // 2, x3, (y2 + y3) // 2)
+
+    if box == cross_icon:  # if cross
+        glColor3f(1.0, 0.0, 0.0)
+        eight_way_symmetry(x1, y1, x3, y3)
+        eight_way_symmetry(x4, y4, x2, y2)
+
+    if box == pause_icon:
+        if pause != True:  # pause
+            glColor3f(1.0, 0.75, 0.0)
+            eight_way_symmetry(x1, y4, x1, y1)
+            eight_way_symmetry(x3 - 20, y4, x1 + 15, y1)
+        else:
+            glColor3f(1.0, 0.75, 0.0)  # play
+            eight_way_symmetry(x1, y4, x1, y1)
+            eight_way_symmetry(x1, y4, x3, (y2 + y3) // 2)
+            eight_way_symmetry(x1, y1, x3, (y2 + y3) // 2)
+
+    glEnd()
+
+
+def show_screen():
+    global W_Width, W_Height
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
+
+    draw_box(shooter)
+    draw_box(arrow)
+    draw_box(pause_icon)
+    draw_box(cross_icon)
+
+    glColor3f(255, 191, 0)
+    glPointSize(2)
+
+    drawEnemies()
+    drawBullets()
+
+    glutSwapBuffers()
+
+
+def keyboard(key, x, y):
+    global shooter_radius, W_Width
+    if shooter_frozen:
+        return  # If shooter is frozen, do not allow shooter movement
+
+    elif key == b'a':  # Move left when 'a' key is pressed
+        if shooter.x >= 20:  # Keep the shooter within the window bounds
+            shooter.x -= 10
+
+    elif key == b'd':  # Move right when 'd' key is pressed
+        if shooter.x <= 455:  # Keep the shooter within the window bounds
+            shooter.x += 10
+
+    elif key == b' ':  # Shoot bullet when spacebar is pressed
+        shoot()
+
+    glutPostRedisplay()  # Trigger a redraw to update
+
+
+# Define a function to handle shooting logic
+def shoot():
+    global bullets
+    bullet_x = shooter.x + shooter.w / 2
+    bullet_y = shooter.y + shooter.h
+    new_bullet = Bullet(bullet_x, bullet_y)
+    bullets.append(new_bullet)
+
+
+def mouse_click(button, state, x, y):
+    global pause, score, pause, shooter_frozen, collision, circles_frozen
+    mx, my = x, W_Height - y
+
+    if state == GLUT_DOWN and button == GLUT_LEFT_BUTTON:
+        if cross_icon.x <= mx <= (cross_icon.x + cross_icon.w) and cross_icon.y <= my <= (cross_icon.y + cross_icon.h):
+            print("Goodbye! Score:", score)
+            glutLeaveMainLoop()
+        elif pause_icon.x <= mx <= (pause_icon.x + pause_icon.w) and pause_icon.y <= my <= (
+                pause_icon.y + pause_icon.h):
+            pause = not pause
+            if pause == False:
+                shooter_frozen = False
+                circles_frozen = False
+            else:
+                shooter_frozen = True
+                circles_frozen = True
+
+        elif arrow.x <= mx <= (arrow.x + arrow.w) and arrow.y <= my <= (
+                arrow.y + arrow.h):  # Check if arrow button is clicked
+            print("Starting Over")
+            score = 0
+            shooter_frozen = False
+            circles_frozen = False
+            missed_circles_count = 0
+            pause = False
+
+
+# Define a variable to keep track of the elapsed time
+start_time = time.time()
+
+# Set a threshold time after which you want to increase the enemy count
+threshold_time = 20
+
+
+
+
+def animation():
+    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter, collision
+
+    if not pause:
+
+        handle_collision_shooter()
+
+        # Calculate the elapsed time
+        elapsed_time = time.time() - start_time
+
+        # Check if the elapsed time exceeds the threshold
+        if elapsed_time > threshold_time:
+
+            # Increase the enemy count
+            NUM_ENEMIES += 1
+            print("Enemy count increased to:", NUM_ENEMIES)
+
+            # Reset the start time to the current time
+            start_time = time.time()
+
+        updateEnemies()  # Call the updateEnemies function here
+
+        # Update the enemy positions
+        current_time = time.time()
+        if current_time - last_enemy_time > 10:  # Adjust interval as needed
+            for _ in range(NUM_ENEMIES):  # Spawn multiple enemies
+                new_enemy = Enemy()
+                # Check for collision with existing enemies
+                while any(check_collision(new_enemy, existing_enemy) for existing_enemy in enemies):
+                    new_enemy = Enemy()  # Generate a new enemy until no collision occurs
+                enemies.append(new_enemy)  # Append new enemies to the enemies list
+            last_enemy_time = current_time
+
+        for enemy in enemies:  # Update the positions of all enemies
+            enemy.y -= enemy.speed
+
+            if enemy.y < 0:
+                enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
+                enemy.y = random.randint(W_Height, W_Height + 200)
+
+        updateBullets()  # Update bullet positions
+
+    glutPostRedisplay()
+
+
+def initialize():
+    glViewport(0, 0, W_Width, W_Height)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    glOrtho(0.0, W_Width, 0.0, W_Height, 0.0, 1.0)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
 
 
 def find_line_zone(x1, y1, x2, y2):
@@ -153,233 +513,6 @@ def eight_way_symmetry(x1, y1, x2, y2):
     converted_x2, converted_y2 = convert(zone, x2, y2)
     midpoint_algo(zone, converted_x1, converted_y1, converted_x2, converted_y2)
 
-# Function to draw enemy ships
-# Function to draw enemy ships
-def drawEnemies():
-    glColor3f(0.0, 1.0, 0.0)
-    for enemy in enemies:
-        x = enemy.x
-        y = enemy.y
-
-        # Draw head
-        glPointSize(2.0)
-        glBegin(GL_POINTS)
-        glVertex2f(x + ENEMY_SIZE / 2, y)
-        glVertex2f(x, y - ENEMY_SIZE)
-        glVertex2f(x + ENEMY_SIZE, y - ENEMY_SIZE)
-        glEnd()
-
-        # Draw eyes
-        glColor3f(1.0, 1.0, 1.0)
-        glBegin(GL_POINTS)
-        for i in range(20):
-            angle = math.radians(i * 10)
-            glVertex2f(x + ENEMY_SIZE / 4 + math.cos(angle) * ENEMY_SIZE / 16, 
-                       y - ENEMY_SIZE / 2 + math.sin(angle) * ENEMY_SIZE / 16)
-            glVertex2f(x + ENEMY_SIZE * 3 / 4 + math.cos(angle) * ENEMY_SIZE / 16, 
-                       y - ENEMY_SIZE / 2 + math.sin(angle) * ENEMY_SIZE / 16)
-        glEnd()
-
-        # Draw evil smile
-        glColor3f(1.0, 0.0, 0.0)
-        glBegin(GL_POINTS)
-        for i in range(36):
-            angle = math.radians(i * 10)
-            glVertex2f(x + ENEMY_SIZE / 3 + math.cos(angle) * ENEMY_SIZE / 12, 
-                       y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
-            glVertex2f(x + ENEMY_SIZE * 2 / 3 + math.cos(angle) * ENEMY_SIZE / 12, 
-                       y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
-        glEnd()
-
-# Function to update enemy positions
-# Define the enemy object globally
-# Function to handle window resizing
-def reshape(w, h):
-    glViewport(0, 0, w, h)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluOrtho2D(0, w, 0, h)
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
-
-# Function to display content
-def draw_box(box):
-    global collision, arrow, pause_icon, cross_icon, shooter, W_Height, shooter_radius
-
-    glBegin(GL_POINTS)
-    x1, y1 = box.x, box.y  # Top-left corner
-    x2, y2 = box.x + box.w, box.y  # Top-right corner
-    x3, y3 = box.x + box.w, box.y + box.h  # Bottom-right corner
-    x4, y4 = box.x, box.y + box.h  # Bottom-left corner
-
-    if box == shooter:
-        glColor3f(1.0, 0.5, 0.0)  # amber color for the shooter
-        # Draw the shooter's shape
-        eight_way_symmetry(x4, y4, x1, y1)
-        eight_way_symmetry(x3, y4, x2, y2)
-        eight_way_symmetry((x4+x2)//2, y4+ 20, x3, y4)
-        eight_way_symmetry((x4+x2)//2, y4+ 20, x4, y4)
-        eight_way_symmetry((x4+x2)//2, y2+ 10, x1, y1)
-        eight_way_symmetry((x4+x2)//2, y2+ 10, x3, y1)
-        glColor3f(1.0, 1.0, 1.0)
-        eight_way_symmetry((x4+x2)//2, y2+ 8, (x4+x2)//2, y1)
-        eight_way_symmetry(((x4 + x2) // 2)+3, y2 + 6, ((x4 + x2) // 2)+ 3, y1)
-        eight_way_symmetry(((x4 + x2) // 2) - 3, y2 + 6, ((x4 + x2) // 2) - 3, y1)
-
-
-
-    if box == arrow:  # if arrow
-        glColor3f(0.0, 0.5, 0.5)
-        eight_way_symmetry(x1, (y1 + y4) // 2, (x1 + x2) // 2, y4)
-        eight_way_symmetry(x1, (y4 + y1) // 2, (x1 + x3) // 2, y1)
-        eight_way_symmetry(x1, (y1 + y4) // 2, x3, (y2 + y3) // 2)
-
-    if box == cross_icon:  # if cross
-        glColor3f(1.0, 0.0, 0.0)
-        eight_way_symmetry(x1, y1, x3, y3)
-        eight_way_symmetry(x4, y4, x2, y2)
-
-    if box == pause_icon:
-        if pause != True:  # pause
-            glColor3f(1.0, 0.75, 0.0)
-            eight_way_symmetry(x1, y4, x1, y1)
-            eight_way_symmetry(x3 - 20, y4, x1 + 15, y1)
-        else:
-            glColor3f(1.0, 0.75, 0.0)  # play
-            eight_way_symmetry(x1, y4, x1, y1)
-            eight_way_symmetry(x1, y4, x3, (y2 + y3) // 2)
-            eight_way_symmetry(x1, y1, x3, (y2 + y3) // 2)
-
-    glEnd()
-
-
-def show_screen():
-    global W_Width, W_Height
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-
-    draw_box(shooter)
-    draw_box(arrow)
-    draw_box(pause_icon)
-    draw_box(cross_icon)
-
-    glColor3f(255, 191, 0)
-    glPointSize(2)
-    
-    drawEnemies()
-
-    glutSwapBuffers()
-
-
-def keyboard(key, x, y):
-    global shooter_radius, W_Width
-    if shooter_frozen:
-        return  # If shooter is frozen, do not allow shooter movement
-
-    elif key == b'a':  # Move left when 'a' key is pressed
-        if shooter.x >= 20 :  # Keep the shooter within the window bounds
-            shooter.x -= 10
-
-    elif key == b'd':  # Move right when 'd' key is pressed
-        if shooter.x <= 455:  # Keep the shooter within the window bounds
-            shooter.x += 10
-    glutPostRedisplay()  # Trigger a redraw to update
-
-
-def mouse_click(button, state, x, y):
-    global pause, diamond, score, pause, shooter_frozen, collision, circles_frozen
-    mx, my = x, W_Height - y
-
-    if state == GLUT_DOWN and button == GLUT_LEFT_BUTTON:
-        if cross_icon.x <= mx <= (cross_icon.x + cross_icon.w) and cross_icon.y <= my <= (cross_icon.y + cross_icon.h):
-            print("Goodbye! Score:", score)
-            glutLeaveMainLoop()
-        elif pause_icon.x <= mx <= (pause_icon.x + pause_icon.w) and pause_icon.y <= my <= (
-                pause_icon.y + pause_icon.h):
-            pause = not pause
-            if pause == False:
-                shooter_frozen = False
-                circles_frozen = False
-            else:
-                shooter_frozen = True
-                circles_frozen = True
-
-        elif arrow.x <= mx <= (arrow.x + arrow.w) and arrow.y <= my <= (
-                arrow.y + arrow.h):  # Check if arrow button is clicked
-            print("Starting Over")
-            score = 0
-            shooter_frozen = False
-            circles_frozen = False
-            missed_circles_count = 0
-            pause = False
-
-def updateEnemies():
-    global W_Width, W_Height, enemies
-  
-    for enemy in enemies:
-        enemy.y -= enemy.speed
-
-        if enemy.y < 0:
-            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
-            enemy.y = random.randint(W_Height, W_Height + 200)
-        
-# Define a variable to keep track of the elapsed time
-start_time = time.time()
-
-# Set a threshold time after which you want to increase the enemy count
-threshold_time = 20  # Adjust this value as needed
-def check_collision(enemy1, enemy2):
-    """
-    Function to check collision between two enemies.
-    """
-    # Calculate the distance between the centers of the two enemies
-    distance = math.sqrt((enemy1.x - enemy2.x)**2 + (enemy1.y - enemy2.y)**2)
-    # Check if the distance is less than the sum of their radii
-    return distance < ENEMY_SIZE
-def animation():
-    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter
-    
-    # Calculate the elapsed time
-    elapsed_time = time.time() - start_time
-    
-    # Check if the elapsed time exceeds the threshold
-    if elapsed_time > threshold_time:
-        print(elapsed_time, threshold_time)
-        # Increase the enemy count
-        NUM_ENEMIES += 1
-        print("Enemy count increased to:", NUM_ENEMIES)
-        
-        # Reset the start time to the current time
-        start_time = time.time()
-    
-    updateEnemies()  # Call the updateEnemies function here
-    
-    # Update the enemy positions
-    current_time = time.time()
-    if current_time - last_enemy_time > 10:  # Adjust interval as needed
-        for _ in range(NUM_ENEMIES):  # Spawn multiple enemies
-            new_enemy = Enemy()
-            # Check for collision with existing enemies
-            while any(check_collision(new_enemy, existing_enemy) for existing_enemy in enemies):
-                new_enemy = Enemy()  # Generate a new enemy until no collision occurs
-            enemies.append(new_enemy)  # Append new enemies to the enemies list
-        last_enemy_time = current_time
-
-    for enemy in enemies:  # Update the positions of all enemies
-        enemy.y -= enemy.speed
-
-        if enemy.y < 0:
-            enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
-            enemy.y = random.randint(W_Height, W_Height + 200)
-       
-    glutPostRedisplay()
-def initialize():
-    glViewport(0, 0, W_Width, W_Height)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    glOrtho(0.0, W_Width, 0.0, W_Height, 0.0, 1.0)
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
 
 glutInit()
 glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
