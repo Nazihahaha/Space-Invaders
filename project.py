@@ -200,7 +200,7 @@ def updateEnemy():
 # Define a function to draw bullets
 def drawBullets():
     glColor3f(0.5, 1.0, 1.0)
-    glPointSize(2.0)
+    glPointSize(4.0)
     glBegin(GL_POINTS)
     for bullet in bullets:
         glVertex2f(bullet.x, bullet.y)
