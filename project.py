@@ -12,10 +12,6 @@ count = 0
 background_color_change_start_time = 0
 # Add the following imports at the beginning of your code
 from collections import deque
-
-
-# Modify the Enemy class to include shooting mechanism
-
 class Enemy:
     def __init__(self):
         self.x = random.randint(0, W_Width - ENEMY_SIZE)
@@ -24,6 +20,7 @@ class Enemy:
         self.shooting = False
         self.shoot_cooldown = 2000  # Cooldown between shots in milliseconds
         self.last_shot_time = 0  # Time when the enemy last shot
+        self.spawn_time = time.time()  # Store the time when the enemy was spawned
     def shoot(self):
         self.shooting = True
         self.last_shot_time = time.time()
@@ -37,7 +34,7 @@ class Bullet:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.speed = 0.1
+        self.speed = 0.5
 
 
 
@@ -48,6 +45,7 @@ enemy = None
 last_enemy_time = time.time()
 bullets = deque()  # Queue to hold bullets
 bullet_speed = 0.2
+BOSS = False
 
 
 
@@ -81,6 +79,123 @@ circle_falling = True
 pause = False
 circles_frozen = False
 
+enemy_x = 250  # X-coordinate of the center of the enemy spaceship
+enemy_y = 600  # Y-coordinate of the center of the enemy spaceship
+
+
+def draw_enemy_spaceship():
+    # Define the dimensions of the enemy spaceship
+    global enemy_x, enemy_y
+    body_width = 80  # Width of the body of the enemy spaceship
+    body_height = 40  # Height of the body of the enemy spaceship
+    wing_width = 30  # Width of the wings of the enemy spaceship
+    wing_height = 20  # Height of the wings of the enemy spaceship
+    front_height = 30  # Height of the front part of the enemy spaceship
+    
+    glBegin(GL_POINTS)
+    glColor3f(1.0, 0.0, 0.0)  # Set color to red
+    
+    # Draw the body of the enemy spaceship
+    x1 = enemy_x - (body_width // 2)
+    y1 = enemy_y
+    x2 = enemy_x + (body_width // 2)
+    y2 = enemy_y
+    mid_x = (x1+x2)/2
+    mid_y = (y1+y2)/2 - 48
+    eight_way_symmetry(x1, y1, x2, y2)  # Draw a horizontal line for body
+    
+    x1 = enemy_x - (body_width // 2)
+    y1 = enemy_y
+    x2 = enemy_x - (body_width // 2)
+    y2 = enemy_y - body_height
+    eight_way_symmetry(x1, y1, x2, y2)  # Draw left edge of body
+
+                                          # Draw vertical lines for left and right edges of the body
+    x1 = enemy_x - (body_width // 2.5)
+    y1 = enemy_y
+    x2 = enemy_x - (body_width // 2.5)
+    y2 = enemy_y - body_height
+    l_mid_x = (x1+x2)/2
+    l_mid_y = (y1+y2)/2
+    eight_way_symmetry(x1, y1, x2, y2)  # Draw left vertical line
+
+    x1 = enemy_x - (body_width // 2)
+    y1 = enemy_y - body_height
+    x2 = enemy_x - (body_width // 2.5)
+    y2 = enemy_y - body_height
+    eight_way_symmetry(x1, y1, x2, y2)
+
+   
+    x1 = enemy_x + (body_width // 2)
+    y1 = enemy_y
+    x2 = enemy_x + (body_width // 2)
+    y2 = enemy_y - body_height
+    eight_way_symmetry(x1, y1, x2, y2)  # Draw right edge of body
+     
+    x1 = enemy_x + (body_width // 2.5)
+    y1 = enemy_y
+    x2 = enemy_x + (body_width // 2.5)
+    y2 = enemy_y - body_height
+    r_mid_x = (x1+x2)/2
+    r_mid_y = (y1+y2)/2
+    eight_way_symmetry(x1, y1, x2, y2)  # Draw right vertical line
+
+    x1 = enemy_x + (body_width // 2.5)
+    y1 = enemy_y - body_height
+    x2 = enemy_x + (body_width // 2)
+    y2 = enemy_y - body_height
+    eight_way_symmetry(x1, y1, x2, y2)
+
+    x1 = r_mid_x
+    y1 = r_mid_y
+    x2 = mid_x
+    y2 = mid_y
+    eight_way_symmetry(x1, y1, x2, y2)
+
+    x1 = r_mid_x 
+    y1 = r_mid_y - 10
+    x2 = mid_x
+    y2 = mid_y - 10
+    eight_way_symmetry(x1, y1, x2, y2)
+
+    x1 = l_mid_x
+    y1 = l_mid_y
+    x2 = mid_x
+    y2 = mid_y
+    eight_way_symmetry(x1, y1, x2, y2)
+
+    x1 = l_mid_x 
+    y1 = l_mid_y - 10
+    x2 = mid_x
+    y2 = mid_y - 10
+    eight_way_symmetry(x1, y1, x2, y2)
+    
+    glEnd()
+
+Right = False
+Left = False
+def updateEnemy():
+    global enemy_y, enemy_x, Left, Right
+    if enemy_y >= 400:
+        enemy_y -= 0.1
+        #print(enemy_y,"y")
+        Left = True
+    else:
+        if Left:
+            if enemy_x >= 50:
+                enemy_x -= 0.1
+                #print("Left")
+                #print(enemy_x,"xL")
+            else:
+                Right = True
+                Left = False
+        if Right:
+            if enemy_x<= 450:
+                enemy_x += 0.1
+            else:
+                Left = True
+                Right = False
+            #print(enemy_x,"xR")
 
 # Define a function to draw bullets
 def drawBullets():
@@ -128,11 +243,11 @@ def drawEnemies():
             glVertex2f(x + ENEMY_SIZE * 2 / 3 + math.cos(angle) * ENEMY_SIZE / 12,
                        y - ENEMY_SIZE * 2 / 3 + math.sin(angle) * ENEMY_SIZE / 12)
         glEnd()
-
-
+spawn_enemies = True
 # Function to update enemy positions
 def updateEnemies():
-    global W_Width, W_Height, enemies
+    global W_Width, W_Height, enemies, spawn_enemies, BOSS
+    enemies_to_remove = []
 
 
     for enemy in enemies:
@@ -141,6 +256,13 @@ def updateEnemies():
         if enemy.y < 0:
             enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
             enemy.y = random.randint(W_Height, W_Height + 200)
+    print(len(enemies))
+    if len(enemies)>4:
+        spawn_enemies = False
+        # Remove the enemy from the list of enemies
+        #print(time.time())
+        BOSS = True
+        enemies.clear()
 
 def check_collision_enemy_bullet(enemy_x, enemy_y, bullet_x, bullet_y, threshold):
     """
@@ -229,7 +351,6 @@ def reshape(w, h):
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
-
 # Function to display content
 def draw_box(box):
     global collision, arrow, pause_icon, cross_icon, shooter, W_Height
@@ -280,7 +401,7 @@ def draw_box(box):
 
 
 def show_screen():
-    global W_Width, W_Height
+    global W_Width, W_Height, BOSS
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
 
@@ -290,10 +411,15 @@ def show_screen():
     draw_box(cross_icon)
 
     glColor3f(255, 191, 0)
-    glPointSize(2)
+    glPointSize(5)
 
     drawEnemies()
     drawBullets()
+
+    if BOSS:
+        draw_enemy_spaceship()
+       
+
 
     glutSwapBuffers()
 
@@ -361,10 +487,8 @@ start_time = time.time()
 threshold_time = 20
 
 
-
-
 def animation():
-    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter, collision
+    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter, collision,spawn_enemies, BOSS
 
     if not pause:
 
@@ -387,7 +511,7 @@ def animation():
 
         # Update the enemy positions
         current_time = time.time()
-        if current_time - last_enemy_time > 10:  # Adjust interval as needed
+        if spawn_enemies and current_time - last_enemy_time > 5:  # Adjust interval as needed
             for _ in range(NUM_ENEMIES):  # Spawn multiple enemies
                 new_enemy = Enemy()
                 # Check for collision with existing enemies
@@ -404,6 +528,9 @@ def animation():
                 enemy.y = random.randint(W_Height, W_Height + 200)
 
         updateBullets()  # Update bullet positions
+        if BOSS:
+            updateEnemy()
+        
 
     glutPostRedisplay()
 
@@ -521,8 +648,9 @@ glutInitWindowSize(500, 700)
 glutInitWindowPosition(0, 0)
 window = glutCreateWindow(b"shoot")
 
-glutIdleFunc(animation)
+
 glutDisplayFunc(show_screen)
+glutIdleFunc(animation)
 
 glutReshapeFunc(reshape)
 glutKeyboardFunc(keyboard)

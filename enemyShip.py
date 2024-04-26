@@ -195,7 +195,6 @@ def mouse_click(button, state, x, y):
     
     if state == GLUT_DOWN and button == GLUT_LEFT_BUTTON:
         if cross_icon.x <= mx <= (cross_icon.x + cross_icon.w) and cross_icon.y <= my <= (cross_icon.y + cross_icon.h):
-            print("Goodbye! Score:", score)
             glutLeaveMainLoop()
         elif pause_icon.x <= mx <= (pause_icon.x + pause_icon.w) and pause_icon.y <= my <= (pause_icon.y + pause_icon.h):
               pause = not pause
@@ -241,7 +240,7 @@ misfires_count = 0
 
 
 enemy_x = 250  # X-coordinate of the center of the enemy spaceship
-enemy_y = 500  # Y-coordinate of the center of the enemy spaceship
+enemy_y = 600  # Y-coordinate of the center of the enemy spaceship
 
 
 def draw_enemy_spaceship():
@@ -332,7 +331,32 @@ def draw_enemy_spaceship():
     eight_way_symmetry(x1, y1, x2, y2)
     
     glEnd()     
-            
+Right = False
+Left = False
+def updateEnemy():
+    global enemy_y, enemy_x, Left, Right
+    if enemy_y >= 400:
+        enemy_y -= 0.1
+        #print(enemy_y,"y")
+        Left = True
+    else:
+        if Left:
+            if enemy_x >= 50:
+                enemy_x -= 0.1
+                print("Left")
+                print(enemy_x,"xL")
+            else:
+                Right = True
+                Left = False
+        if Right:
+            if enemy_x<= 450:
+                enemy_x += 0.1
+            else:
+                Left = True
+                Right = False
+            print(enemy_x,"xR")
+
+     
 
 def show_screen():
     global W_Width, W_Height, fire_projectiles, shooter_radius
@@ -347,9 +371,6 @@ def show_screen():
 
     glutSwapBuffers()
 
-def updateEnemy():
-    global enemy_y 
-    enemy_y -= 0.1
 
 # Add updating of fire projectiles to the animation() function
 last_circle_spawn_time = 0  # Variable to track the last time a circle was generated
