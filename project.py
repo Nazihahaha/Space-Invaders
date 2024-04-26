@@ -10,13 +10,34 @@ ENEMY_SIZE = 30
 NUM_ENEMIES = 1
 count = 0
 background_color_change_start_time = 0
+diamond_speed = 0.01
 # Add the following imports at the beginning of your code
 from collections import deque
+
+class AABB:
+    x = 0
+    y = 0
+    w = 0
+    h = 0 
+
+    def __init__(self, x, y, w, h):
+        self.x, self.y, self.w, self.h = x, y, w, h
+    
+    def collides_with(box1, box2):
+        return (box1.x < box2.x + box2.w and # x_min_1 < x_max_2
+                box1.x + box1.w > box2.x  and # x_max_1 > m_min_2
+                box1.y < box2.y + box2.h and # y_min_1 < y_max_2
+                box1.y + box1.h > box2.y)     # y_max_1 > y_min_2
+
+# Global variables
+diamond = AABB(random.randint(5,W_Width-10 ), 640, 15, 18) # diamond
+
+
 class Enemy:
     def __init__(self):
         self.x = random.randint(0, W_Width - ENEMY_SIZE)
         self.y = random.randint(W_Height, W_Height)  # Set initial y-coordinate
-        self.speed = 0.05
+        self.speed = 0.1
         self.shooting = False
         self.shoot_cooldown = 2000  # Cooldown between shots in milliseconds
         self.last_shot_time = 0  # Time when the enemy last shot
@@ -46,6 +67,8 @@ last_enemy_time = time.time()
 bullets = deque()  # Queue to hold bullets
 bullet_speed = 0.2
 BOSS = False
+shooter_pass = True
+
 
 
 
@@ -59,13 +82,15 @@ class dimensions:
         self.x, self.y, self.w, self.h = x, y, w, h
 
 
-
+enemy_cnt = 0
 def init():
+    global enemy_cnt
     glClearColor(0.0, 0.0, 0.0, 1.0)
 
     # Initialize enemy ships
     for _ in range(NUM_ENEMIES):
         enemies.append(Enemy())
+        enemy_cnt += 1
 
 
 shooter = dimensions(40, 20, 30, 20)  # catcher
@@ -78,6 +103,7 @@ shooter_frozen = False
 circle_falling = True
 pause = False
 circles_frozen = False
+diamond_colour = (random.uniform(10.0, 5.0), random.uniform(10.0, 5.0), random.uniform(10.0, 5.0))
 
 enemy_x = 250  # X-coordinate of the center of the enemy spaceship
 enemy_y = 600  # Y-coordinate of the center of the enemy spaceship
@@ -171,36 +197,43 @@ def draw_enemy_spaceship():
     eight_way_symmetry(x1, y1, x2, y2)
     
     glEnd()
-
+boss_coming = False
 Right = False
 Left = False
+shooter_bullet_cnt = 0
 def updateEnemy():
-    global enemy_y, enemy_x, Left, Right
-    if enemy_y >= 400:
-        enemy_y -= 0.1
-        #print(enemy_y,"y")
-        Left = True
-    else:
-        if Left:
-            if enemy_x >= 50:
-                enemy_x -= 0.1
-                #print("Left")
-                #print(enemy_x,"xL")
-            else:
-                Right = True
-                Left = False
-        if Right:
-            if enemy_x<= 450:
-                enemy_x += 0.1
-            else:
-                Left = True
-                Right = False
-            #print(enemy_x,"xR")
-
+    global enemy_y, enemy_x, Left, Right, shooter_bullet_cnt, shooter_pass, boss_coming
+    if shooter_bullet_cnt == 10:
+        shooter_pass = False
+        if enemy_y >= -5:
+            enemy_y -= 0.2
+    if shooter_pass:
+        if enemy_y >= 400:
+            enemy_y -= 0.1
+            boss_coming = True
+            Left = True
+            shooter_bullet_cnt = 0
+        else:
+            boss_coming = False
+            if Left:
+                if enemy_x >= 50:
+                    enemy_x -= 0.2
+                    #print("Left")
+                    #print(enemy_x,"xL")
+                else:
+                    Right = True
+                    Left = False
+            if Right:
+                if enemy_x<= 450:
+                    enemy_x += 0.2
+                else:
+                    Left = True
+                    Right = False
+                #print(enemy_x,"xR")
 # Define a function to draw bullets
 def drawBullets():
     glColor3f(0.5, 1.0, 1.0)
-    glPointSize(4.0)
+    glPointSize(2.0)
     glBegin(GL_POINTS)
     for bullet in bullets:
         glVertex2f(bullet.x, bullet.y)
@@ -251,13 +284,19 @@ def updateEnemies():
 
 
     for enemy in enemies:
-        enemy.y -= enemy.speed
+        
+        if enemy.y <= 10:
+            enemies.remove(enemy)
+            print(len(enemies),"ami")
+        if enemy.y >= 0:
+            enemy.y -= enemy.speed
+            #print(enemy.y,"y")
 
         if enemy.y < 0:
             enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
             enemy.y = random.randint(W_Height, W_Height + 200)
     print(len(enemies))
-    if len(enemies)>4:
+    if len(enemies)>20:
         spawn_enemies = False
         # Remove the enemy from the list of enemies
         #print(time.time())
@@ -334,6 +373,7 @@ def handle_collision_shooter():
         glClearColor(0.0, 0.0, 0.0, 1.0)
     glutPostRedisplay()
 
+
 def shoot():
     global bullets
     bullet_x = shooter.x + shooter.w / 2
@@ -353,13 +393,29 @@ def reshape(w, h):
 
 # Function to display content
 def draw_box(box):
-    global collision, arrow, pause_icon, cross_icon, shooter, W_Height
+    global collision, arrow, pause_icon, cross_icon, shooter, W_Height, diamond
 
     glBegin(GL_POINTS)
     x1, y1 = box.x, box.y  # Top-left corner
     x2, y2 = box.x + box.w, box.y  # Top-right corner
     x3, y3 = box.x + box.w, box.y + box.h  # Bottom-right corner
     x4, y4 = box.x, box.y + box.h  # Bottom-left corner
+
+    if collision:
+       glColor3f(0.0, 0.0, 0.0)  # The diamond disappearing
+    else:
+       glColor3f(diamond_colour[0], diamond_colour[1], diamond_colour[2])
+
+    if box == diamond:  # if diamond
+        eight_way_symmetry(x1, (y1 + y4) // 2, (x1 + x2) // 2, y4)
+        eight_way_symmetry((x1 + x2) // 2, y4, x3, (y4 + y1) // 2)
+        eight_way_symmetry(x3, (y4 + y1) // 2, (x1 + x3) // 2, y1)
+        eight_way_symmetry(x4, (y4+y1)//2, (x3+x4)//2, y1)
+
+    if collision:
+        glColor3f(1.0, 0.0, 0.0)
+    else:
+        glColor3f(0.0, 1.0, 0.0)
 
     if box == shooter:
         glColor3f(1.0, 0.5, 0.0)  # amber color for the shooter
@@ -400,32 +456,10 @@ def draw_box(box):
     glEnd()
 
 
-def show_screen():
-    global W_Width, W_Height, BOSS
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-
-    draw_box(shooter)
-    draw_box(arrow)
-    draw_box(pause_icon)
-    draw_box(cross_icon)
-
-    glColor3f(255, 191, 0)
-    glPointSize(5)
-
-    drawEnemies()
-    drawBullets()
-
-    if BOSS:
-        draw_enemy_spaceship()
-       
-
-
-    glutSwapBuffers()
 
 
 def keyboard(key, x, y):
-    global shooter_radius, W_Width
+    global shooter_radius, W_Width, shooter_bullet_cnt, boss_coming, shooter_pass
     if shooter_frozen:
         return  # If shooter is frozen, do not allow shooter movement
 
@@ -438,7 +472,9 @@ def keyboard(key, x, y):
             shooter.x += 10
 
     elif key == b' ':  # Shoot bullet when spacebar is pressed
-        shoot()
+        if not boss_coming and shooter_pass:
+            shooter_bullet_cnt += 1
+            shoot()
 
     glutPostRedisplay()  # Trigger a redraw to update
 
@@ -451,6 +487,11 @@ def shoot():
     new_bullet = Bullet(bullet_x, bullet_y)
     bullets.append(new_bullet)
 
+def updateDiamond():
+    global diamond_speed
+    #print(diamond.y,"hii")
+    if diamond.y > -15:
+        diamond.y -= 0.1
 
 def mouse_click(button, state, x, y):
     global pause, score, pause, shooter_frozen, collision, circles_frozen
@@ -485,10 +526,33 @@ start_time = time.time()
 
 # Set a threshold time after which you want to increase the enemy count
 threshold_time = 20
+def show_screen():
+    global W_Width, W_Height, BOSS, shooter_bullet_cnt, enemies, enemy_cnt
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
 
+    draw_box(shooter)
+    draw_box(arrow)
+    draw_box(pause_icon)
+    draw_box(cross_icon)
 
+    glColor3f(255, 191, 0)
+    glPointSize(2)
+
+    drawEnemies()
+    drawBullets()
+
+    if BOSS:
+        draw_enemy_spaceship()
+        #print(shooter_bullet_cnt)
+
+    if enemy_cnt > 2:
+        print(enemy_cnt,"enemy")
+        draw_box(diamond)
+
+    glutSwapBuffers()
 def animation():
-    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter, collision,spawn_enemies, BOSS
+    global enemy, last_enemy_time, start_time, NUM_ENEMIES, shooter, collision,spawn_enemies, BOSS, enemies, enemy_cnt
 
     if not pause:
 
@@ -511,28 +575,25 @@ def animation():
 
         # Update the enemy positions
         current_time = time.time()
-        if spawn_enemies and current_time - last_enemy_time > 5:  # Adjust interval as needed
+        if spawn_enemies and current_time - last_enemy_time > 2:  # Adjust interval as needed
             for _ in range(NUM_ENEMIES):  # Spawn multiple enemies
                 new_enemy = Enemy()
                 # Check for collision with existing enemies
                 while any(check_collision(new_enemy, existing_enemy) for existing_enemy in enemies):
                     new_enemy = Enemy()  # Generate a new enemy until no collision occurs
                 enemies.append(new_enemy)  # Append new enemies to the enemies list
+                enemy_cnt += 1
             last_enemy_time = current_time
-
-        for enemy in enemies:  # Update the positions of all enemies
-            enemy.y -= enemy.speed
-
-            if enemy.y < 0:
-                enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
-                enemy.y = random.randint(W_Height, W_Height + 200)
-
         updateBullets()  # Update bullet positions
+        #updateDiamond()
+        if enemy_cnt >2:
+            updateDiamond()
         if BOSS:
             updateEnemy()
         
 
     glutPostRedisplay()
+
 
 
 def initialize():

@@ -1,0 +1,304 @@
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GLUT import *
+import random 
+
+
+WINDOW_WIDTH  = 500
+WINDOW_HEIGHT = 700
+
+class AABB:
+    x = 0
+    y = 0
+    w = 0
+    h = 0 
+
+    def __init__(self, x, y, w, h):
+        self.x, self.y, self.w, self.h = x, y, w, h
+    
+    def collides_with(box1, box2):
+        return (box1.x < box2.x + box2.w and # x_min_1 < x_max_2
+                box1.x + box1.w > box2.x  and # x_max_1 > m_min_2
+                box1.y < box2.y + box2.h and # y_min_1 < y_max_2
+                box1.y + box1.h > box2.y)     # y_max_1 > y_min_2
+
+# Global variables
+diamond = AABB(random.randint(5,WINDOW_WIDTH-10 ), 640, 15, 18) # diamond
+catcher = AABB(190, 5, 90, 20) # catcher
+arrow = AABB(10, 660, 35, 35) # arrow
+pause_icon = AABB(230, 660, 35, 35) #pause
+cross_icon = AABB(450, 660, 35, 35) #cross
+catcher_position = 10
+collision = False
+diamond_initial_y = 600
+diamond_speed = 0.07
+score = 0
+catcher_frozen = False
+diamond_falling = True
+pause = False
+diamond_colour = (random.uniform(10.0, 5.0), random.uniform(10.0, 5.0), random.uniform(10.0, 5.0))
+
+def find_line_zone(x1, y1, x2, y2):
+    dx = x2 - x1
+    dy = y2 - y1
+    zone = 0
+
+    if abs(dx) < abs(dy):
+        if dx > 0 and dy > 0:
+            zone = 1
+        elif dx < 0 and dy > 0:
+            zone = 2
+        elif dx < 0 and dy < 0:
+            zone = 5
+        else:
+            zone = 6
+    else:
+        if dx > 0 and dy > 0:
+            zone = 0
+        elif dx < 0 and dy > 0:
+            zone = 3
+        elif dx < 0 and dy < 0:
+            zone = 4
+        else:
+            zone = 7
+    return zone
+
+def convert(original_zone,x,y) :
+
+    if (original_zone == 0) :
+        return x,y
+    elif (original_zone == 1) :
+        return y,x
+    elif (original_zone == 2) :
+        return -y,x
+    elif (original_zone == 3) :
+        return -x,y
+    elif (original_zone == 4) :
+        return -x,-y
+    elif (original_zone == 5) :
+        return -y,-x
+    elif (original_zone == 6) :
+        return -y,x
+    elif (original_zone == 7) :
+        return x,-y
+
+
+def convert_back(original_zone,x,y) :
+
+    if (original_zone == 0) :
+        return x,y
+    elif (original_zone == 1) :
+        return y,x
+    elif (original_zone == 2) :
+        return -y,-x
+    elif (original_zone == 3) :
+        return -x,y
+    elif (original_zone == 4) :
+        return -x,-y
+    elif (original_zone == 5) :
+        return -y,-x
+    elif (original_zone == 6) :
+        return y,-x
+    elif (original_zone == 7) :
+        return x,-y
+   
+def midpoint_algo(zone, x1 , y1, x2, y2 ):
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+    d = 2*dy-dx
+    incE = 2*dy
+    incNE = 2*(dy-dx)
+
+    y = y1
+    x = x1
+    for x in range(x1, x2 + 1):
+        conv_x1 , conv_y1 = convert_back(zone,x,y)
+        glVertex2f(conv_x1, conv_y1)
+
+        if d>0:
+            d = d+incNE
+            y = y+1
+            x = x + 1
+        else:
+            d = d+incE
+            x = x + 1
+
+
+def eight_way_symmetry(x1,y1,x2,y2) :
+
+    x1 = int(x1)
+    y1 = int(y1)
+    x2 = int(x2)
+    y2 = int(y2)
+    zone = find_line_zone(x1,y1,x2,y2)
+    converted_x1, converted_y1 = convert(zone,x1,y1)
+    converted_x2, converted_y2 = convert(zone,x2,y2)
+    midpoint_algo(zone,converted_x1,converted_y1,converted_x2,converted_y2) 
+
+
+def draw_box(box):
+    global collision, diamond, catcher, arrow, pause_icon, cross_icon, diamond_colour
+    
+
+    glBegin(GL_POINTS)
+    x1, y1 = box.x, box.y  # Top-left corner
+    x2, y2 = box.x + box.w, box.y  # Top-right corner
+    x3, y3 = box.x + box.w, box.y + box.h  # Bottom-right corner
+    x4, y4 = box.x, box.y + box.h  # Bottom-left corner
+
+    if collision:
+       glColor3f(0.0, 0.0, 0.0)  # The diamond disappearing
+    else:
+       glColor3f(diamond_colour[0], diamond_colour[1], diamond_colour[2])
+
+    if box == diamond:  # if diamond
+        eight_way_symmetry(x1, (y1 + y4) // 2, (x1 + x2) // 2, y4)
+        eight_way_symmetry((x1 + x2) // 2, y4, x3, (y4 + y1) // 2)
+        eight_way_symmetry(x3, (y4 + y1) // 2, (x1 + x3) // 2, y1)
+        eight_way_symmetry(x4, (y4+y1)//2, (x3+x4)//2, y1)
+
+    if collision:
+        glColor3f(1.0, 0.0, 0.0)
+    else:
+        glColor3f(0.0, 1.0, 0.0)
+
+    if box == catcher:
+        eight_way_symmetry(x1+2, y4-4, x3-2, y4-4)
+        eight_way_symmetry(((x3-x1)//4)+x1 , y1+2, x1+2, y4-4)
+        eight_way_symmetry(((x3-x1)//4)+x1, y1+2 , (((x3-x1)//4)*3)+x1, y1+2)
+        eight_way_symmetry((((x3-x1)//4)*3)+x1, y1+2, x3-2, y4-4)
+   
+    if box == arrow:  # if arrow
+        glColor3f(0.0, 0.5, 0.5)
+        eight_way_symmetry(x1, (y1 + y4) // 2, (x1 + x2) // 2, y4)
+        eight_way_symmetry(x1, (y4 + y1) // 2, (x1 + x3) // 2, y1)
+        eight_way_symmetry(x1, (y1 + y4) // 2, x3, (y2 + y3) // 2)
+
+    if box == cross_icon:  # if cross
+        glColor3f(1.0, 0.0, 0.0)
+        eight_way_symmetry(x1, y1, x3, y3)
+        eight_way_symmetry(x4, y4, x2, y2)
+
+    if box == pause_icon:
+        if pause != True:
+            glColor3f(1.0, 0.75, 0.0)
+            eight_way_symmetry(x1, y4, x1, y1)
+            eight_way_symmetry(x3 - 20, y4, x1 + 15, y1)
+        else:
+            glColor3f(1.0, 0.75, 0.0)
+            eight_way_symmetry(x1, y4, x1, y1)
+            eight_way_symmetry(x1, y4, x3, (y2 + y3) // 2)
+            eight_way_symmetry(x1, y1, x3, (y2 + y3) // 2)
+
+    glEnd()
+
+
+def initialize():
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT)
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    glOrtho(0.0, WINDOW_WIDTH, 0.0, WINDOW_HEIGHT, 0.0, 1.0)
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
+
+def check_collision():
+    global diamond, catcher, collision , score, diamond_speed , diamond_colour, catcher_frozen
+
+    if diamond.collides_with(catcher):
+        score += 1
+        diamond.x= random.randint(5,WINDOW_WIDTH-10)
+        diamond.y=diamond_initial_y 
+        diamond_speed += 0.03
+        # Generate random bright color for the diamond
+        while True:
+            diamond_colour = (random.random(), random.random(), random.random())
+            # Check if the color is bright enough
+            if sum(diamond_colour) > 2.0:
+                break
+        print("Your score :", score)
+        return True
+    else:
+        if catcher_frozen == False and diamond_falling== True:
+            diamond.y -= diamond_speed
+            if diamond.y < 0:
+                collision = True
+                catcher_frozen = True
+                print('GAME OVER!','\nYour final score is :',score)
+      
+
+def show_screen():
+    
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    draw_box(diamond)
+    draw_box(catcher)
+    draw_box(arrow)
+    draw_box(pause_icon)
+    draw_box(cross_icon)
+    glutSwapBuffers()
+
+def keyboard_special_keys(key, x, y):
+   
+    global catcher , catcher_frozen
+
+    if catcher_frozen != True:
+        if key == GLUT_KEY_LEFT:
+            if catcher.x >= 5:  #check if the catcher is within the window in the left edge
+                catcher.x -= catcher_position
+        elif key == GLUT_KEY_RIGHT:
+            if catcher.x <=  (WINDOW_WIDTH - catcher.w-5):   #check if the catcher is within the window in the right edge
+                catcher.x += catcher_position
+
+    glutPostRedisplay()
+
+def mouse_click(button, state, x, y):
+    global  pause , diamond ,score , diamond_initial_y ,diamond_falling , pause , catcher_frozen , collision
+
+    mx, my = x, WINDOW_HEIGHT - y
+    if state == GLUT_DOWN and button == GLUT_LEFT_BUTTON:
+        # Check if the click is with arrow
+        if arrow.x <= mx <= (arrow.x + arrow.w) and arrow.y <= my <= (arrow.y + arrow.h):
+            score = 0
+            diamond.y = diamond_initial_y
+            diamond.x= random.randint(5,WINDOW_WIDTH-10 )
+            catcher_frozen = False
+            collision = False
+            pause = False
+            diamond_falling = True
+            print('Starting Over !')
+        # Check if the click is inside cross
+        elif cross_icon.x <= mx <= (cross_icon.x + cross_icon.w) and cross_icon.y <= my <= (cross_icon.y + cross_icon.h):
+            print("Goodbye! Score:", score)
+            glutLeaveMainLoop()
+        elif pause_icon.x <= mx <= (pause_icon.x + pause_icon.w) and pause_icon.y <= my <= (pause_icon.y + pause_icon.h):
+              diamond_falling = not diamond_falling
+              pause = not pause
+              if pause == False :
+                catcher_frozen = False
+              else:
+                  catcher_frozen = True   
+
+    glutPostRedisplay()
+
+
+def animation():
+
+    check_collision()
+    
+    glutPostRedisplay()
+
+glutInit()
+glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
+glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+glutInitWindowSize(500, 700)
+glutInitWindowPosition(0, 0)
+window = glutCreateWindow(b"Catch the Diamonds!")
+
+glutDisplayFunc(show_screen)
+glutIdleFunc(animation)
+
+glutSpecialFunc(keyboard_special_keys)
+glutMouseFunc(mouse_click)
+
+glEnable(GL_DEPTH_TEST)
+initialize()
+glutMainLoop()

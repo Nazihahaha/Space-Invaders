@@ -4,7 +4,8 @@ from OpenGL.GLU import *
 import math
 import random
 import time
-
+diamond_colour = (random.uniform(10.0, 5.0), random.uniform(10.0, 5.0), random.uniform(10.0, 5.0))
+collision = False
 W_Width, W_Height = 500,700
 
 class dimensions:
@@ -23,7 +24,23 @@ cross_icon = dimensions(450, 660, 35, 35) #cross
 
 pause = False
 
+class AABB:
+    x = 0
+    y = 0
+    w = 0
+    h = 0 
 
+    def __init__(self, x, y, w, h):
+        self.x, self.y, self.w, self.h = x, y, w, h
+    
+    def collides_with(box1, box2):
+        return (box1.x < box2.x + box2.w and # x_min_1 < x_max_2
+                box1.x + box1.w > box2.x  and # x_max_1 > m_min_2
+                box1.y < box2.y + box2.h and # y_min_1 < y_max_2
+                box1.y + box1.h > box2.y)     # y_max_1 > y_min_2
+
+# Global variables
+diamond = AABB(random.randint(5,W_Width-10 ), 640, 15, 18) # diamond
 
 def find_line_zone(x1, y1, x2, y2):
     dx = x2 - x1
@@ -124,13 +141,29 @@ def eight_way_symmetry(x1,y1,x2,y2) :
 
 
 def draw_box(box):
-    global collision,arrow, pause_icon, cross_icon
+    global collision, diamond, catcher, arrow, pause_icon, cross_icon, diamond_colour
 
     glBegin(GL_POINTS)
     x1, y1 = box.x, box.y  # Top-left corner
     x2, y2 = box.x + box.w, box.y  # Top-right corner
     x3, y3 = box.x + box.w, box.y + box.h  # Bottom-right corner
     x4, y4 = box.x, box.y + box.h  # Bottom-left corner
+
+    if collision:
+       glColor3f(0.0, 0.0, 0.0)  # The diamond disappearing
+    else:
+       glColor3f(diamond_colour[0], diamond_colour[1], diamond_colour[2])
+
+    if box == diamond:  # if diamond
+        eight_way_symmetry(x1, (y1 + y4) // 2, (x1 + x2) // 2, y4)
+        eight_way_symmetry((x1 + x2) // 2, y4, x3, (y4 + y1) // 2)
+        eight_way_symmetry(x3, (y4 + y1) // 2, (x1 + x3) // 2, y1)
+        eight_way_symmetry(x4, (y4+y1)//2, (x3+x4)//2, y1)
+
+    if collision:
+        glColor3f(1.0, 0.0, 0.0)
+    else:
+        glColor3f(0.0, 1.0, 0.0)
    
     if box == arrow:  # if arrow
         glColor3f(0.0, 0.5, 0.5)
@@ -366,6 +399,7 @@ def show_screen():
     draw_box(arrow)
     draw_box(pause_icon)
     draw_box(cross_icon)
+    draw_box(diamond)
 
     draw_enemy_spaceship()  # Draw the enemy spaceship
 
