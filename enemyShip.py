@@ -223,7 +223,7 @@ def draw_circle(x,y,r):
 
 # Mouse callback function
 def mouse_click(button, state, x, y):
-    global  pause , diamond ,score ,  pause , shooter_frozen , collision, circles_frozen
+    global  pause , diamond ,score ,  pause , shooter_frozen , collision, enemies
     mx, my = x, W_Height - y
     
     if state == GLUT_DOWN and button == GLUT_LEFT_BUTTON:
@@ -241,7 +241,7 @@ def mouse_click(button, state, x, y):
         elif arrow.x <= mx <= (arrow.x + arrow.w) and arrow.y <= my <= (arrow.y + arrow.h):  # Check if arrow button is clicked
             print("Starting Over")
             score = 0
-            falling_circles.clear()
+            enemies.clear()
             fire_projectiles.clear()
             shooter_frozen = False
             circles_frozen = False

@@ -31,6 +31,7 @@ class AABB:
                 box1.y + box1.h > box2.y)     # y_max_1 > y_min_2
 
 # Global variables
+diamond_x_init = 250
 diamond = AABB(random.randint(5,W_Width-10 ), 640, 15, 18) # diamond
 
 
@@ -99,7 +100,6 @@ arrow = dimensions(10, 660, 35, 35)  # arrow
 pause_icon = dimensions(230, 660, 35, 35)  # pause
 cross_icon = dimensions(450, 660, 35, 35)  # cross
 collision = False
-score = 0
 shooter_frozen = False
 circle_falling = True
 pause = False
@@ -288,7 +288,6 @@ def updateEnemies():
         
         if enemy.y <= 10:
             enemies.remove(enemy)
-            print(len(enemies),"ami")
         if enemy.y >= 0:
             enemy.y -= enemy.speed
             #print(enemy.y,"y")
@@ -296,7 +295,6 @@ def updateEnemies():
         if enemy.y < 0:
             enemy.x = random.randint(0, W_Width - ENEMY_SIZE)
             enemy.y = random.randint(W_Height, W_Height + 200)
-    print(len(enemies))
     if len(enemies)>20:
         spawn_enemies = False
         # Remove the enemy from the list of enemies
@@ -315,7 +313,7 @@ def check_collision_enemy_bullet(enemy_x, enemy_y, bullet_x, bullet_y, threshold
 
 
 def updateBullets():
-    global bullets, enemies, score
+    global bullets, enemies
     threshold = 20
     # Iterate over copies of bullets
     for bullet in bullets.copy():
@@ -326,7 +324,6 @@ def updateBullets():
              if check_collision_enemy_bullet(enemy.x + ENEMY_SIZE / 2, enemy.y, bullet.x, bullet.y, threshold):
                 bullets.remove(bullet)  # Remove bullet
                 enemies.remove(enemy)  # Remove enemy
-                score += 1  # Increase score by 1
 
     # Remove bullets that have moved out of the screen
     bullets = [bullet for bullet in bullets if bullet.y <= W_Height]
@@ -369,7 +366,8 @@ def handle_collision_shooter():
     if time.time() - background_color_change_start_time <= 0.2:
 
         # print('red')
-        glClearColor(1.0, 0.0, 0.0, 0.0)
+        #glClearColor(1.0, 0.0, 0.0, 0.0)
+        pass
     else:
         # print('black')
         glClearColor(0.0, 0.0, 0.0, 1.0)
@@ -378,8 +376,7 @@ def handle_collision_shooter():
 diamond_collided = False
 def check_diamond_collision():
     global diamond, shooter, diamond_collided, background_color_change_start_time
-    print(diamond.y,shooter.y,"diamond and shooter")
-    if diamond.y <= shooter.y:
+    if diamond.y <= shooter.y and shooter.x < diamond.x <shooter.x + shooter.w:
         background_color_change_start_time = time.time()
         diamond_collided = True
         print("collided")
@@ -411,7 +408,6 @@ def reshape(w, h):
     gluOrtho2D(0, w, 0, h)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
-
 # Function to display content
 def draw_box(box):
     global collision, arrow, pause_icon, cross_icon, shooter, W_Height, diamond
@@ -519,23 +515,19 @@ def shoot():
         bullets.append(new_bullet1)
         bullets.append(new_bullet2)
 
-
 def updateDiamond():
     global diamond_speed
-    #print(diamond.y,"hii")
-    if diamond.y > -15:
+    if diamond.y > -20:
         diamond.y -= 0.1
 
 def mouse_click(button, state, x, y):
-    global pause, score, pause, shooter_frozen, collision, circles_frozen
+    global pause, pause, shooter_frozen, collision, enemies, enemy_cnt
     mx, my = x, W_Height - y
 
     if state == GLUT_DOWN and button == GLUT_LEFT_BUTTON:
         if cross_icon.x <= mx <= (cross_icon.x + cross_icon.w) and cross_icon.y <= my <= (cross_icon.y + cross_icon.h):
-            print("Goodbye! Score:", score)
             glutLeaveMainLoop()
-        elif pause_icon.x <= mx <= (pause_icon.x + pause_icon.w) and pause_icon.y <= my <= (
-                pause_icon.y + pause_icon.h):
+        elif pause_icon.x <= mx <= (pause_icon.x + pause_icon.w) and pause_icon.y <= my <= (pause_icon.y + pause_icon.h):
             pause = not pause
             if pause == False:
                 shooter_frozen = False
@@ -547,11 +539,11 @@ def mouse_click(button, state, x, y):
         elif arrow.x <= mx <= (arrow.x + arrow.w) and arrow.y <= my <= (
                 arrow.y + arrow.h):  # Check if arrow button is clicked
             print("Starting Over")
-            score = 0
-            shooter_frozen = False
-            circles_frozen = False
-            missed_circles_count = 0
+            diamond.x = diamond_x_init
+            diamond.y = 640
             pause = False
+            enemy_cnt = 0
+            enemies.clear()
 def draw_circle(x,y,r):
     global shooter_frozen
     x_p = 0
@@ -622,7 +614,6 @@ def show_screen():
         #print(shooter_bullet_cnt)
 
     if enemy_cnt > 2:
-        print(enemy_cnt,"enemy")
         draw_box(diamond)
 
     glutSwapBuffers()
