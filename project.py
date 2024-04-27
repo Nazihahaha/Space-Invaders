@@ -385,7 +385,7 @@ def handle_collision_shooter():
     if time.time() - background_color_change_start_time <= 0.2:
 
         # print('red')
-        #glClearColor(1.0, 0.0, 0.0, 0.0)
+        glClearColor(1.0, 0.0, 0.0, 0.0)
         pass
     else:
         # print('black')

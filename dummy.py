@@ -4,6 +4,8 @@ from OpenGL.GLU import *
 import math
 import random
 import time
+from collections import deque
+
 
 W_Width, W_Height = 500, 700
 ENEMY_SIZE = 30
@@ -14,8 +16,15 @@ diamond_speed = 0.01
 health_cnt = 3
 diamond_color_change = 0
 # Add the following imports at the beginning of your code
-from collections import deque
+falling_circles = []  # List to store FallingCircle objects
 
+
+class FallingCircle:
+    def __init__(self):
+        self.x = random.randint(15, W_Width-50)  # Random x-coordinate within the window width
+        self.y = W_Height - 70  # Start from the top of the window
+        self.radius = random.randint(15, 30)  # Random radius for the circle
+        self.speed = 0.1 # falling speed
 
 class AABB:
     x = 0
@@ -495,6 +504,39 @@ def draw_box(box):
     glEnd()
 
 
+def draw_circle(x,y,r):
+    global shooter_frozen
+    glBegin(GL_POINTS)
+    x_p = 0
+    y_p = r
+    d = 1 - r
+    
+    
+    while x_p <= y_p:
+
+        glVertex2f(x_p + x, y_p + y)
+        glVertex2f(-x_p + x, y_p + y)
+        glVertex2f(x_p + x, -y_p + y)
+        glVertex2f(-x_p + x, -y_p + y)
+        glVertex2f(y_p+ x, x_p + y)
+        glVertex2f(-y_p + x, x_p + y)
+        glVertex2f(y_p + x, -x_p + y)
+        glVertex2f(-y_p + x, -x_p + y)
+
+        forSE = 2*(x_p-y_p)+5
+        forE = (2*x_p) +3 
+
+        
+        if d >= 0:
+            x_p += 1
+            y_p -= 1
+            d += forSE
+        else:
+            x_p += 1
+            d += forE
+    glEnd()
+
+
 def keyboard(key, x, y):
     global shooter_radius, W_Width, shooter_bullet_cnt, boss_coming, shooter_pass
     if shooter_frozen:
@@ -566,7 +608,7 @@ def mouse_click(button, state, x, y):
             enemies.clear()
 
 
-def draw_circle(x, y, r):
+def draw_semi_circle(x, y, r):
     global shooter_frozen
     x_p = 0
     y_p = r
@@ -601,8 +643,8 @@ def draw_health(dx, dy, color):
     glColor3f(255, 191, 0)
     eight_way_symmetry(x + dx, y - dy, x + dx + 15, y + dy)
     eight_way_symmetry(x + dx - 15, y + dy, x + dx, y - dy)
-    draw_circle(x + dx + 7.5, y + dy, 7.5)
-    draw_circle(x + dx - 7.5, y + dy, 7.5)
+    draw_semi_circle(x + dx + 7.5, y + dy, 7.5)
+    draw_semi_circle(x + dx - 7.5, y + dy, 7.5)
 
     glEnd()
 
@@ -613,6 +655,38 @@ start_time = time.time()
 # Set a threshold time after which you want to increase the enemy count
 threshold_time = 20
 
+def update_falling_circles():
+    global falling_circles, W_Height, circles_frozen, shooter_frozen, score, shooter_radius
+    if circles_frozen:
+        return  # If circles are frozen, do not update their positions
+
+    if shooter_frozen:  
+        return   # If shooter is frozen due to game over, do not update falling circles
+          
+    circles_to_remove = []
+    for circle in falling_circles:
+        circle.y -= circle.speed  # Move the circle downwards
+    
+    # # Check for collision with the shooter
+    # for circle in falling_circles:
+    #     #print(shooter.y + 40,circle.y,"Y")
+    #     if shooter.y + 40>=circle.y and circle.x-circle.radius<= shooter.x-shooter_radius<=circle.x+circle.radius+circle.radius :
+    #         print("Game Over! Final Score:", score)
+    #         print("Falling circle collided with shooter")
+    #         falling_circles.clear()  # Remove all falling circles
+    #         fire_projectiles.clear()
+    #         shooter_frozen = True  # Disable shooter movement
+    #         circles_frozen = True  # Freeze falling circles
+
+    # # Check game over condition: missed 3 falling circles
+    # if missed_circles_count >= 3:
+    #     print("Game Over! Final Score:", score)
+    #     print("Three missed circles")
+    #     falling_circles.clear()  # Remove all falling circles
+    #     fire_projectiles.clear()
+    #     shooter_frozen = True  # Disable shooter movement
+    #     circles_frozen = True  # Freeze falling circles
+    #     return
 
 def show_screen():
     global W_Width, W_Height, BOSS, shooter_bullet_cnt, enemies, enemy_cnt, health_cnt
@@ -636,10 +710,16 @@ def show_screen():
     if BOSS:
         draw_enemy_spaceship()
         # print(shooter_bullet_cnt)
-
+    #glBegin(GL_POINTS)
     if enemy_cnt > 2:
         print(enemy_cnt, "enemy")
         draw_box(diamond)
+        glColor3f(255, 165, 0.0) 
+        for circle in falling_circles:
+            draw_circle(circle.x+25, circle.y, circle.radius)
+    #glEnd()
+
+
 
     glutSwapBuffers()
 
@@ -681,6 +761,7 @@ def animation():
         # updateDiamond()
         if enemy_cnt > 2:
             updateDiamond()
+            update_falling_circles()
         if BOSS:
             updateEnemy()
 

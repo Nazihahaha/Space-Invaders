@@ -190,6 +190,8 @@ def draw_box(box):
     glEnd()
 
 
+
+
 def draw_circle(x,y,r):
     global shooter_frozen
     x_p = 0
