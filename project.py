@@ -377,11 +377,21 @@ def handle_collision_shooter():
 
 diamond_collided = False
 def check_diamond_collision():
-    global diamond, shooter, diamond_collided
+    global diamond, shooter, diamond_collided, background_color_change_start_time
     print(diamond.y,shooter.y,"diamond and shooter")
     if diamond.y <= shooter.y:
+        background_color_change_start_time = time.time()
         diamond_collided = True
         print("collided")
+
+    if time.time() - background_color_change_start_time <= 0.2:
+
+        # print('red')
+        glClearColor(0.0, 1.0, 0.0, 0.0)
+    else:
+        # print('black')
+        glClearColor(0.0, 0.0, 0.0, 1.0)
+    glutPostRedisplay()
 
 
 
