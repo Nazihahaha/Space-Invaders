@@ -11,6 +11,7 @@ NUM_ENEMIES = 1
 count = 0
 background_color_change_start_time = 0
 diamond_speed = 0.01
+health_cnt = 3
 # Add the following imports at the beginning of your code
 from collections import deque
 
@@ -345,13 +346,14 @@ def check_collision_shooter_enemy(shooter_x, shooter_y, enemy_x, enemy_y, thresh
 
 # Function to handle collision between the shooter and enemies
 def handle_collision_shooter():
-    global shooter, enemies, collision, count, pause, background_color_change_start_time
+    global shooter, enemies, collision, count, pause, background_color_change_start_time, health_cnt
     for enemy in enemies:
         if check_collision_shooter_enemy(shooter.x + shooter.w / 2, shooter.y + shooter.h / 2, enemy.x + ENEMY_SIZE / 2, enemy.y + ENEMY_SIZE / 2, shooter.w):
 
             collision = True
             enemies.remove(enemy)
             background_color_change_start_time = time.time()
+            health_cnt -= 1
             print(background_color_change_start_time)
 
             count += 1
@@ -372,6 +374,15 @@ def handle_collision_shooter():
         # print('black')
         glClearColor(0.0, 0.0, 0.0, 1.0)
     glutPostRedisplay()
+
+diamond_collided = False
+def check_diamond_collision():
+    global diamond, shooter, diamond_collided
+    print(diamond.y,shooter.y,"diamond and shooter")
+    if diamond.y <= shooter.y:
+        diamond_collided = True
+        print("collided")
+
 
 
 def shoot():
@@ -475,17 +486,29 @@ def keyboard(key, x, y):
         if not boss_coming and shooter_pass:
             shooter_bullet_cnt += 1
             shoot()
+       
 
     glutPostRedisplay()  # Trigger a redraw to update
 
 
 # Define a function to handle shooting logic
 def shoot():
-    global bullets
-    bullet_x = shooter.x + shooter.w / 2
-    bullet_y = shooter.y + shooter.h
-    new_bullet = Bullet(bullet_x, bullet_y)
-    bullets.append(new_bullet)
+    global bullets, diamond_collided
+    if not diamond_collided:
+        bullet_x = shooter.x + shooter.w / 2
+        bullet_y = shooter.y + shooter.h
+        new_bullet = Bullet(bullet_x, bullet_y)
+        bullets.append(new_bullet)
+    else:
+        print("THIS")
+        bullet_x1 = shooter.x 
+        bullet_y = shooter.y + shooter.h
+        bullet_x2 = shooter.x + shooter.w
+        new_bullet1 = Bullet(bullet_x1, bullet_y)
+        new_bullet2 = Bullet(bullet_x2, bullet_y)
+        bullets.append(new_bullet1)
+        bullets.append(new_bullet2)
+
 
 def updateDiamond():
     global diamond_speed
@@ -519,7 +542,46 @@ def mouse_click(button, state, x, y):
             circles_frozen = False
             missed_circles_count = 0
             pause = False
+def draw_circle(x,y,r):
+    global shooter_frozen
+    x_p = 0
+    y_p = r
+    d = 1 - r
+    
+    
+    while x_p <= y_p:
 
+        glVertex2f(x_p + x, y_p + y)
+        glVertex2f(-x_p + x, y_p + y)
+        #glVertex2f(x_p + x, -y_p + y)
+        #glVertex2f(-x_p + x, -y_p + y)
+        glVertex2f(y_p+ x, x_p + y)
+        glVertex2f(-y_p + x, x_p + y)
+        #glVertex2f(y_p + x, -x_p + y)
+        #glVertex2f(-y_p + x, -x_p + y)
+
+        forSE = 2*(x_p-y_p)+5
+        forE = (2*x_p) +3 
+
+        
+        if d >= 0:
+            x_p += 1
+            y_p -= 1
+            d += forSE
+        else:
+            x_p += 1
+            d += forE
+
+def draw_health(dx, dy, color):
+    glBegin(GL_POINTS)
+    x, y = 270, 660
+    glColor3f(255, 191, 0)
+    eight_way_symmetry(x+dx, y-dy, x+dx+15, y+dy)
+    eight_way_symmetry(x+dx-15, y+dy, x+dx, y-dy)
+    draw_circle(x+dx+7.5, y+dy, 7.5)
+    draw_circle(x+dx-7.5, y+dy, 7.5)
+
+    glEnd()
 
 # Define a variable to keep track of the elapsed time
 start_time = time.time()
@@ -527,7 +589,7 @@ start_time = time.time()
 # Set a threshold time after which you want to increase the enemy count
 threshold_time = 20
 def show_screen():
-    global W_Width, W_Height, BOSS, shooter_bullet_cnt, enemies, enemy_cnt
+    global W_Width, W_Height, BOSS, shooter_bullet_cnt, enemies, enemy_cnt, health_cnt
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
 
@@ -541,6 +603,9 @@ def show_screen():
 
     drawEnemies()
     drawBullets()
+
+    for i in range(health_cnt):
+        draw_health(60 + (i*40), 8, (1.0, 0, 0))
 
     if BOSS:
         draw_enemy_spaceship()
@@ -557,6 +622,7 @@ def animation():
     if not pause:
 
         handle_collision_shooter()
+        check_diamond_collision()
 
         # Calculate the elapsed time
         elapsed_time = time.time() - start_time
